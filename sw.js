@@ -1,8 +1,8 @@
-const CACHE='cfh-beta-v1-0-1';
+const CACHE='cfh-beta-v1-0-2';
 const ASSETS=[
   '/cheema-family-hub-beta/manifest.json',
-  '/cheema-family-hub-beta/icon.png',
-  '/cheema-family-hub-beta/apple-touch-icon.png'
+  '/cheema-family-hub-beta/icon-v2.png',
+  '/cheema-family-hub-beta/apple-touch-icon-v2.png'
 ];
 
 self.addEventListener('install',e=>{
@@ -63,8 +63,8 @@ self.addEventListener('push',e=>{
   const isShopMode = /at the shops/i.test(title);
   const options={
     body,
-    icon:'https://j-c-81.github.io/cheema-family-hub-beta/icon.png',
-    badge:'https://j-c-81.github.io/cheema-family-hub-beta/icon.png',
+    icon:'https://j-c-81.github.io/cheema-family-hub-beta/icon-v2.png',
+    badge:'https://j-c-81.github.io/cheema-family-hub-beta/icon-v2.png',
     tag: isShopMode ? 'cfh-beta-shop-mode' : 'cfh-beta-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),
     renotify:true,
     requireInteraction: isShopMode,
