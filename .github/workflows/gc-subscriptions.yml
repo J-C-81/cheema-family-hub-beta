@@ -1,0 +1,62 @@
+name: GC stale beta subscriptions
+
+# Once a day, prune push subscriptions in /subscriptions-beta whose
+# `refreshedAt` is older than 30 days. Subs without a `refreshedAt`
+# field are left untouched. Mirrors the prod GC but targets the
+# beta-only path.
+
+on:
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune beta subs with refreshedAt older than 30 days
+        env:
+          FB_AUTH: ${{ secrets.FB_AUTH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FB_AUTH:-}" ]; then
+            echo "ERROR: FB_AUTH secret not set on the repo." >&2
+            exit 1
+          fi
+          FB="https://cheema-79800-default-rtdb.europe-west1.firebasedatabase.app/subscriptions-beta"
+          curl -sf "$FB.json?auth=$FB_AUTH" -o /tmp/subs.json
+          if [ ! -s /tmp/subs.json ] || [ "$(cat /tmp/subs.json)" = "null" ]; then
+            echo "No beta subscriptions, nothing to do."
+            exit 0
+          fi
+          python3 - <<PY
+          import json, os, time, urllib.parse, urllib.request
+          subs = json.load(open('/tmp/subs.json'))
+          if not isinstance(subs, dict):
+              print('Subscriptions are not a dict, skipping.')
+              raise SystemExit(0)
+          now_ms = int(time.time() * 1000)
+          cutoff = now_ms - 30 * 86400 * 1000
+          fb = "$FB"
+          auth = urllib.parse.quote(os.environ['FB_AUTH'], safe='')
+          stale, kept_no_ts, kept_fresh = [], 0, 0
+          for k, v in subs.items():
+              if not isinstance(v, dict):
+                  continue
+              ts = v.get('refreshedAt')
+              if not isinstance(ts, (int, float)):
+                  kept_no_ts += 1
+                  continue
+              if ts < cutoff:
+                  stale.append(k)
+              else:
+                  kept_fresh += 1
+          for k in stale:
+              req = urllib.request.Request(f"{fb}/{k}.json?auth={auth}", method='DELETE')
+              urllib.request.urlopen(req).read()
+              print(f"deleted {k}")
+          print(f"summary: deleted={len(stale)}, kept_fresh={kept_fresh}, kept_no_refreshedAt={kept_no_ts}")
+          PY

@@ -1,0 +1,43 @@
+name: Notify on Deploy (beta)
+
+# Fires AFTER the beta GitHub Pages deploy has finished successfully, so the
+# push notification arrives when the new beta version is actually live to
+# beta devices. Calls cfh-push-beta which only reads /subscriptions-beta,
+# so there is no path from this workflow to family devices.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  notify:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'github-pages') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: ver
+        run: |
+          set -euo pipefail
+          VER=$(grep -oE "^const VER='v[0-9]+\.[0-9]+\.[0-9]+'" index.html \
+                | head -1 \
+                | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+")
+          if [ -z "${VER:-}" ]; then
+            echo "ERROR: could not find 'const VER=...' in index.html" >&2
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Send beta push notification
+        env:
+          CFH_SYS_KEY: ${{ secrets.CFH_SYS_KEY }}
+        run: |
+          if [ -z "${CFH_SYS_KEY:-}" ]; then
+            echo "ERROR: CFH_SYS_KEY secret not set on the repo." >&2
+            exit 1
+          fi
+          curl -s -X POST https://cfh-push-beta.jivancheemalfc.workers.dev \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CFH_SYS_KEY}" \
+            -d "{\"title\":\"Family Hub Beta Updated 🧪\",\"body\":\"Now on ${{ steps.ver.outputs.version }} (beta) — open the beta app to test\",\"addedBy\":\"__system__\",\"notifyAll\":true}"
