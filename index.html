@@ -18,12 +18,17 @@
    - Manifest:  name "Cheema Family Hub (Beta)", short_name "Hub Beta"
    - UI:        a small amber BETA pill renders next to the version
                 in the footer (gated by the BETA flag)
+   - localStorage keys: all suffixed with -beta / _beta_ so beta and
+                live never share state on the j-c-81.github.io origin
+                (cfh-cache-beta, cfh-last-ver-beta, cfh_member_beta,
+                 cfh_read_beta_<name>, cfh-theme-beta,
+                 cfh-install-seen-beta, cfh-splash-beta).
 
   Promotion flow: changes go beta -> tested -> promote-beta-to-main
   copies the modified index.html into the main repo and strips the
   beta-specific values back to their prod equivalents.
 
-  CURRENT VERSION: v7.2.1
+  CURRENT VERSION: v7.2.2
   (Auto-synced from `const VER` by .github/workflows/sync-version.yml.
    THIS LINE IS THE SOURCE OF TRUTH FOR THE CURRENT VERSION.
    Do NOT infer the version from the changelog below — it can lag if
@@ -212,6 +217,16 @@
      button off-screen. Save deep detail for the commit message.
 
   CHANGELOG:
+  v7.2.2 - Beta-only fixes. (1) Firebase RTDB rules opened on the
+            beta-only paths so the PWA's anonymous reads and push-
+            subscription writes succeed instead of silently 401'ing
+            (which is why the laptop kept showing the live app's
+            cached items and the phone never registered for push).
+            (2) Every localStorage key in this build is now suffixed
+            so it can never collide with the live app on the shared
+            j-c-81.github.io origin — no more What's-New popups on
+            version mismatches, no more shared cached items, separate
+            install banner, separate theme, separate last-read.
   v7.2.1 - Tapping "Ping again" during shop mode now plays its own
             quick animation — three concentric ripples in your colour
             with a small cart pulsing in the centre — so it feels like
@@ -808,7 +823,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hub Beta">
 <meta name="theme-color" id="tmeta" content="#fef3c7">
-<script>try{if(localStorage.getItem('cfh-theme')==='dark'){document.documentElement.classList.add('dark');document.getElementById('tmeta').setAttribute('content','#09090c')}}catch(e){}</script>
+<script>try{if(localStorage.getItem('cfh-theme-beta')==='dark'){document.documentElement.classList.add('dark');document.getElementById('tmeta').setAttribute('content','#09090c')}}catch(e){}</script>
 <title>Cheema Family Hub (Beta)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1194,7 +1209,7 @@ header{border-bottom:1.5px solid var(--brd);padding:calc(11px + env(safe-area-in
 <script>
 const BETA=true;
 const FB='https://cheema-79800-default-rtdb.europe-west1.firebasedatabase.app/cheema-beta.json';
-const VER='v7.2.1';
+const VER='v7.2.2';
 const PUSH_RELAY='https://cfh-push-beta.jivancheemalfc.workers.dev';
 const MEMBERS=[{name:'Mum',initials:'M',color:'#f472b6'},{name:'Dad',initials:'D',color:'#3b82f6'},{name:'Jiv',initials:'J',color:'#f97316'},{name:'Rajan(Midget)',initials:'R',color:'#ef4444'}];
 const URGENCY=[{label:'Low',color:'#22c55e',ring:'#4ade80'},{label:'Medium',color:'#eab308',ring:'#fde047'},{label:'High',color:'#ef4444',ring:'#f87171'}];
@@ -1218,7 +1233,7 @@ function syncDvh(){try{const h=(window.visualViewport&&window.visualViewport.hei
 function nudgeLayout(){try{syncDvh();const c=document.getElementById('content');if(c){const t=c.scrollTop;c.scrollTop=t+1;c.scrollTop=t;}document.body.style.minHeight='calc(100lvh + 0.5px)';requestAnimationFrame(()=>{document.body.style.minHeight='';syncDvh();});}catch(e){}}
 function syncShopFab(){try{const cur=document.getElementById('shop-fab');const show=member&&tabIdx===0&&!shopModeActive();if(show){let btn=cur;if(!btn){btn=document.createElement('button');btn.id='shop-fab';btn.className='shop-mode-fab';btn.title="I'm at the shops";btn.innerHTML=iconSvg('cart',16)+'<span>At the shops</span>';btn.onclick=startShopMode;document.body.appendChild(btn);}const m=getMem(member);btn.style.setProperty('--fab-c',m.color);btn.style.setProperty('--fab-c2',m.color);btn.style.setProperty('--fab-shadow',m.color+'66');}else if(cur){cur.remove();}}catch(e){}}
 function initTheme(){syncThemeBtn();}
-function toggleTheme(){haptic([8,40,8]);const d=document.documentElement.classList.toggle('dark');localStorage.setItem('cfh-theme',d?'dark':'light');document.getElementById('tmeta').content=d?'#09090c':'#eef2ff';syncThemeBtn();}
+function toggleTheme(){haptic([8,40,8]);const d=document.documentElement.classList.toggle('dark');localStorage.setItem('cfh-theme-beta',d?'dark':'light');document.getElementById('tmeta').content=d?'#09090c':'#fef3c7';syncThemeBtn();}
 function syncThemeBtn(){const ic=document.getElementById('theme-icon');if(!ic)return;ic.innerHTML=document.documentElement.classList.contains('dark')?'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>':'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -1235,8 +1250,8 @@ function updateSuggestions(){const inp=document.getElementById('mi'),row=documen
 function pickSuggestion(i){const text=_suggestList[i];if(text==null)return;const inp=document.getElementById('mi');if(!inp)return;inp.value=text;inp.focus();const row=document.getElementById('suggest-row');if(row){row.classList.remove('has-suggs');row.innerHTML='';}haptic(6);}
 function hideSuggestion(i){const k=_suggestList[i];if(!k)return;_sessionHidden.add(k);haptic(6);_suggestList.splice(i,1);updateSuggestions();}
 function blockSuggestion(i){return hideSuggestion(i);}
-function cacheState(){try{localStorage.setItem('cfh-cache',JSON.stringify({state,ts:Date.now()}));}catch(e){}}
-function loadCache(){try{const c=JSON.parse(localStorage.getItem('cfh-cache')||'null');if(c&&c.state)return c;}catch(e){}return null;}
+function cacheState(){try{localStorage.setItem('cfh-cache-beta',JSON.stringify({state,ts:Date.now()}));}catch(e){}}
+function loadCache(){try{const c=JSON.parse(localStorage.getItem('cfh-cache-beta')||'null');if(c&&c.state)return c;}catch(e){}return null;}
 function setOffline(v){document.body.classList.toggle('offline',v);}
 async function fbRead(){const r=await fetch(FB,{signal:AbortSignal.timeout(8000)});if(!r.ok)throw new Error(r.status);const d=await r.json();const ih=(d&&d.itemHistory)||{};return{shop:toArr(d&&d.shop),todo:toArr(d&&d.todo),notes:toArr(d&&d.notes),notices:toArr(d&&d.notices),itemHistory:{shop:(ih&&ih.shop)||{},todo:(ih&&ih.todo)||{},shopBlocked:toArr(ih&&ih.shopBlocked)},shopMode:(d&&d.shopMode)||null,updatedAt:(d&&d.updatedAt)||0};}
 async function fbReadUpdatedAt(){const r=await fetch(FB.replace(/\.json$/,'/updatedAt.json'),{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error(r.status);const v=await r.json();return typeof v==='number'?v:0;}
@@ -1275,7 +1290,7 @@ function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classL
 let _switching=false;
 function doLogout(){if(_switching)return;try{if(pollTimer){clearInterval(pollTimer);pollTimer=null;}member=null;syncShopFab();renderLogin();const card=document.querySelector('.login-card');if(card){card.style.transition='';card.style.opacity='';card.style.transform='';}showScreen('login');}catch(e){}}
 function renderLogin(){const g=document.getElementById('mgrid');g.innerHTML=MEMBERS.map(m=>`<button class="mbtn" id="mb${m.initials}" onclick="selectMember('${esc(m.name)}')"><div class="av" style="width:50px;height:50px;background:${m.color}18;border:2px solid ${m.color}55;font-size:20px;color:${m.color};border-radius:28%">${m.initials}</div><span class="mname" style="color:${m.color}">${esc(m.name)}</span></button>`).join('');MEMBERS.forEach(m=>{const b=document.getElementById('mb'+m.initials);if(!b)return;const on=()=>{b.style.borderColor=m.color;b.style.background=m.color+'10';b.style.boxShadow=`0 4px 20px ${m.color}22`;b.querySelector('.av').style.transform='scale(1.1)';};const off=()=>{b.style.borderColor='';b.style.background='';b.style.boxShadow='';b.querySelector('.av').style.transform='';};b.addEventListener('mouseenter',on);b.addEventListener('mouseleave',off);b.addEventListener('touchstart',on,{passive:true});b.addEventListener('touchend',()=>setTimeout(off,260));});}
-function selectMember(name){if(_switching)return;_switching=true;try{member=name;haptic(10);localStorage.setItem('cfh_member',name);const m=getMem(name);lastReadNotes=parseInt(localStorage.getItem('cfh_read_'+name)||'0');const ha=document.getElementById('hav'),hn=document.getElementById('hname'),hicon=document.getElementById('hicon');if(ha){ha.style.cssText=`width:22px;height:22px;border-radius:7px;background:${m.color}20;border:1.5px solid ${m.color}55;font-size:9px;color:${m.color};font-weight:800`;ha.textContent=m.initials;}if(hn)hn.textContent=name;if(hicon)hicon.style.background=`linear-gradient(145deg,${m.color},${m.color}88)`;const card=document.querySelector('.login-card');if(card){card.style.transition='opacity .2s ease,transform .2s ease';card.style.opacity='0';card.style.transform='scale(.95) translateY(-10px)';}setTimeout(()=>{try{renderTabs();renderContent();showScreen('app');nudgeLayout();setTimeout(()=>{try{nudgeLayout();}catch(e){}},120);setTimeout(()=>{try{nudgeLayout();}catch(e){}},500);const c=document.getElementById('content');if(c){c.style.transition='none';c.style.opacity='0';c.style.transform='translateY(12px)';requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='opacity .28s ease,transform .28s ease';c.style.opacity='1';c.style.transform='none';}));}if(!pollTimer)startPoll();if('Notification' in window){if(isStandalone()&&Notification.permission==='default')setTimeout(()=>{try{subscribePush().then(ok=>ok&&renderContent());}catch(e){}},1500);else if(Notification.permission==='granted')setTimeout(()=>{try{initPush();}catch(e){}},200);}}catch(e){}finally{_switching=false;}},200);}catch(e){_switching=false;}}
+function selectMember(name){if(_switching)return;_switching=true;try{member=name;haptic(10);localStorage.setItem('cfh_member_beta',name);const m=getMem(name);lastReadNotes=parseInt(localStorage.getItem('cfh_read_beta_'+name)||'0');const ha=document.getElementById('hav'),hn=document.getElementById('hname'),hicon=document.getElementById('hicon');if(ha){ha.style.cssText=`width:22px;height:22px;border-radius:7px;background:${m.color}20;border:1.5px solid ${m.color}55;font-size:9px;color:${m.color};font-weight:800`;ha.textContent=m.initials;}if(hn)hn.textContent=name;if(hicon)hicon.style.background=`linear-gradient(145deg,${m.color},${m.color}88)`;const card=document.querySelector('.login-card');if(card){card.style.transition='opacity .2s ease,transform .2s ease';card.style.opacity='0';card.style.transform='scale(.95) translateY(-10px)';}setTimeout(()=>{try{renderTabs();renderContent();showScreen('app');nudgeLayout();setTimeout(()=>{try{nudgeLayout();}catch(e){}},120);setTimeout(()=>{try{nudgeLayout();}catch(e){}},500);const c=document.getElementById('content');if(c){c.style.transition='none';c.style.opacity='0';c.style.transform='translateY(12px)';requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transition='opacity .28s ease,transform .28s ease';c.style.opacity='1';c.style.transform='none';}));}if(!pollTimer)startPoll();if('Notification' in window){if(isStandalone()&&Notification.permission==='default')setTimeout(()=>{try{subscribePush().then(ok=>ok&&renderContent());}catch(e){}},1500);else if(Notification.permission==='granted')setTimeout(()=>{try{initPush();}catch(e){}},200);}}catch(e){}finally{_switching=false;}},200);}catch(e){_switching=false;}}
 let _lastContentHash=null,_lastContentTab=null,_lastTabsHash=null;
 function _hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return h;}
 function applyContent(c,html,post){const h=_hash(html);if(_lastContentHash===h&&_lastContentTab===tabIdx)return false;_lastContentHash=h;_lastContentTab=tabIdx;const sy=c.scrollTop;c.innerHTML=html;if(sy)c.scrollTop=sy;if(post)post();return true;}
@@ -1301,7 +1316,7 @@ async function setTab(i){
   ghost.scrollTop=c.scrollTop;
   c.parentNode.insertBefore(ghost,c.nextSibling);
   tabIdx=i;
-  if(i===2){lastReadNotes=Date.now();localStorage.setItem('cfh_read_'+member,lastReadNotes);}
+  if(i===2){lastReadNotes=Date.now();localStorage.setItem('cfh_read_beta_'+member,lastReadNotes);}
   renderTabs();
   renderContent();
   c.scrollTop=0;
@@ -1746,7 +1761,7 @@ function _completeSwipeTo(dir,startDx){
   ghost.style.transform=`translate3d(${startDx}px,0,0)`;
   c.parentNode.insertBefore(ghost,c.nextSibling);
   tabIdx=targetIdx;
-  if(targetIdx===2){lastReadNotes=Date.now();try{localStorage.setItem('cfh_read_'+member,lastReadNotes);}catch(e){}}
+  if(targetIdx===2){lastReadNotes=Date.now();try{localStorage.setItem('cfh_read_beta_'+member,lastReadNotes);}catch(e){}}
   renderTabs();renderContent();
   c.scrollTop=0;
   c.style.transition='none';
@@ -2219,9 +2234,9 @@ function isStandalone(){return window.matchMedia('(display-mode: standalone)').m
 function isIOS(){return /iP(hone|ad|od)/.test(navigator.userAgent);}
 function renderInstallBanner(){}
 function checkVersionUpdate(){
-  const last=localStorage.getItem('cfh-last-ver');
+  const last=localStorage.getItem('cfh-last-ver-beta');
   if(last!==VER){
-    localStorage.setItem('cfh-last-ver',VER);
+    localStorage.setItem('cfh-last-ver-beta',VER);
     if(last){setTimeout(()=>showUpdatePopup(last),900);try{retagOthers();}catch(e){}}
   }
 }
@@ -2262,8 +2277,8 @@ async function showUpdatePopup(prevVer){
 }
 function checkInstallPrompt(){
   if(isStandalone())return;
-  if(localStorage.getItem('cfh-install-seen'))return;
-  localStorage.setItem('cfh-install-seen','1');
+  if(localStorage.getItem('cfh-install-seen-beta'))return;
+  localStorage.setItem('cfh-install-seen-beta','1');
   setTimeout(showInstallPopup,2200);
 }
 function showInstallPopup(){
@@ -2282,8 +2297,8 @@ function showInstallPopup(){
 async function initPush(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return;if(Notification.permission!=='granted')return;try{if(!swReg)swReg=await navigator.serviceWorker.register('/cheema-family-hub-beta/sw.js',{scope:'/cheema-family-hub-beta/'});await navigator.serviceWorker.ready;let sub=await swReg.pushManager.getSubscription();if(!sub){try{sub=await swReg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUB)});}catch(e){return;}}const key=sub.endpoint.split('/').pop().replace(/[^a-zA-Z0-9]/g,'').slice(-20)||'sub'+Date.now();await fetch(`https://cheema-79800-default-rtdb.europe-west1.firebasedatabase.app/subscriptions-beta/${key}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),member,refreshedAt:Date.now()})});}catch(e){}}
 function playAppOpenSplash(){
   try{
-    if(sessionStorage.getItem('cfh-splash'))return;
-    sessionStorage.setItem('cfh-splash','1');
+    if(sessionStorage.getItem('cfh-splash-beta'))return;
+    sessionStorage.setItem('cfh-splash-beta','1');
     const o=document.createElement('div');o.className='splash-overlay';
     o.innerHTML=`<div class="splash-logo"><div class="splash-ring"></div><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>`;
     document.body.appendChild(o);
@@ -2295,7 +2310,7 @@ async function init(){try{playAppOpenSplash();}catch(e){}try{syncDvh();window.ad
 // shouldn't keep an item out of suggestions forever, only for the session.
 const wasBlocked=(state.itemHistory&&Array.isArray(state.itemHistory.shopBlocked))?state.itemHistory.shopBlocked.length:0;
 if(wasBlocked>0){state.itemHistory.shopBlocked=[];try{save();}catch(e){}}
-cacheState();setStatus('live');setOffline(false);}catch(e){if(!cache){setStatus('error');renderLogin();showScreen('login');return;}setStatus('offline');setOffline(true);}try{renderLogin();const saved=localStorage.getItem('cfh_member');const ok=saved&&MEMBERS.find(m=>m.name===saved);if(ok){selectMember(saved);}else{showScreen('login');}startPoll();}catch(e){showScreen('login');}try{initPush();}catch(e){}try{checkVersionUpdate();}catch(e){}try{checkInstallPrompt();}catch(e){}window.addEventListener('online',()=>{setOffline(false);setStatus('live');save();});window.addEventListener('offline',()=>{setOffline(true);setStatus('offline');});
+cacheState();setStatus('live');setOffline(false);}catch(e){if(!cache){setStatus('error');renderLogin();showScreen('login');return;}setStatus('offline');setOffline(true);}try{renderLogin();const saved=localStorage.getItem('cfh_member_beta');const ok=saved&&MEMBERS.find(m=>m.name===saved);if(ok){selectMember(saved);}else{showScreen('login');}startPoll();}catch(e){showScreen('login');}try{initPush();}catch(e){}try{checkVersionUpdate();}catch(e){}try{checkInstallPrompt();}catch(e){}window.addEventListener('online',()=>{setOffline(false);setStatus('live');save();});window.addEventListener('offline',()=>{setOffline(true);setStatus('offline');});
 // Keyboard tab navigation for desktop users — Ctrl/Cmd + Arrow switches tabs.
 window.addEventListener('keydown',e=>{
   if(!member)return;
