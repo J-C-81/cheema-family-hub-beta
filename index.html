@@ -217,6 +217,13 @@
      button off-screen. Save deep detail for the commit message.
 
   CHANGELOG:
+  v7.2.3 - Push notifications were silently going missing if you locked
+            the phone or closed the app within a few seconds of adding
+            an item or sending a message — the 8s grouping timer would
+            get killed before it fired. The batch is now flushed
+            immediately when the app goes to the background, the relay
+            fetch is keepalive so it survives the unload, and the
+            grouping window dropped from 8s to 2s.
   v7.2.2 - Beta-only fixes. (1) Firebase RTDB rules opened on the
             beta-only paths so the PWA's anonymous reads and push-
             subscription writes succeed instead of silently 401'ing
@@ -1209,7 +1216,7 @@ header{border-bottom:1.5px solid var(--brd);padding:calc(11px + env(safe-area-in
 <script>
 const BETA=true;
 const FB='https://cheema-79800-default-rtdb.europe-west1.firebasedatabase.app/cheema-beta.json';
-const VER='v7.2.2';
+const VER='v7.2.3';
 const PUSH_RELAY='https://cfh-push-beta.jivancheemalfc.workers.dev';
 const MEMBERS=[{name:'Mum',initials:'M',color:'#f472b6'},{name:'Dad',initials:'D',color:'#3b82f6'},{name:'Jiv',initials:'J',color:'#f97316'},{name:'Rajan(Midget)',initials:'R',color:'#ef4444'}];
 const URGENCY=[{label:'Low',color:'#22c55e',ring:'#4ade80'},{label:'Medium',color:'#eab308',ring:'#fde047'},{label:'High',color:'#ef4444',ring:'#f87171'}];
@@ -1283,9 +1290,10 @@ const VAPID_PUB='BLNLDlnkHQtU5h9giid3dy6-SQP4G6brkfnNfWJzu0sIJumqbMZ-YqETUNbfwt4
 function b64ToU8(b64){const p='='.repeat((4-b64.length%4)%4);const r=atob((b64+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)));}
 async function initSW(){if(!('serviceWorker' in navigator))return;try{swReg=await navigator.serviceWorker.register('/cheema-family-hub-beta/sw.js',{scope:'/cheema-family-hub-beta/'});}catch(e){console.log('SW:',e);}}
 async function subscribePush(){if(!swReg||!('PushManager' in window))return false;try{const perm=await Notification.requestPermission();if(perm!=='granted')return false;let sub=await swReg.pushManager.getSubscription();if(!sub){await navigator.serviceWorker.ready;sub=await swReg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUB)});}const key=sub.endpoint.split('/').pop().replace(/[^a-zA-Z0-9]/g,'').slice(-20)||'sub'+Date.now();await fetch(`https://cheema-79800-default-rtdb.europe-west1.firebasedatabase.app/subscriptions-beta/${key}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...sub.toJSON(),member})});return true;}catch(e){return false;}}
-async function sendPushNotif(title,body,addedBy){if(!PUSH_RELAY)return;try{fetch(PUSH_RELAY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body,addedBy})});}catch(e){}}
+async function sendPushNotif(title,body,addedBy){if(!PUSH_RELAY)return;try{fetch(PUSH_RELAY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,body,addedBy}),keepalive:true});}catch(e){}}
 let notifBatch=[],notifTimer2=null;
-function queueNotif(type,who,text){notifBatch.push({type,who,text});if(notifTimer2)clearTimeout(notifTimer2);notifTimer2=setTimeout(()=>{const b=[...notifBatch];notifBatch=[];if(!b.length)return;const groups={};for(const x of b){const k=x.type+'|'+x.who;(groups[k]=groups[k]||{type:x.type,who:x.who,items:[]}).items.push(x.text);}const gs=Object.values(groups);const section={shop:'Shopping',todo:'To-Do'},word={shop:'items',todo:'tasks'};let title,body;if(gs.length===1){const g=gs[0],n=g.items.length;if(g.type==='msg'){title=n===1?g.who:`${g.who} sent ${n} messages`;body=n===1?g.items[0]:'';}else{title=n===1?`${g.who} added to ${section[g.type]}`:`${g.who} added ${n} ${word[g.type]} to ${section[g.type]}`;body=n===1?g.items[0]:'';}}else{title='Family Hub';body=gs.map(g=>{const n=g.items.length;if(g.type==='msg')return n===1?`${g.who}: ${g.items[0]}`:`${g.who} sent ${n} messages`;return n===1?`${g.who} added to ${section[g.type]}: ${g.items[0]}`:`${g.who} added ${n} to ${section[g.type]}`;}).join(' · ');}sendPushNotif(title,body,member);},8000);}
+function flushNotifBatch(){if(notifTimer2){clearTimeout(notifTimer2);notifTimer2=null;}const b=[...notifBatch];notifBatch=[];if(!b.length)return;const groups={};for(const x of b){const k=x.type+'|'+x.who;(groups[k]=groups[k]||{type:x.type,who:x.who,items:[]}).items.push(x.text);}const gs=Object.values(groups);const section={shop:'Shopping',todo:'To-Do'},word={shop:'items',todo:'tasks'};let title,body;if(gs.length===1){const g=gs[0],n=g.items.length;if(g.type==='msg'){title=n===1?g.who:`${g.who} sent ${n} messages`;body=n===1?g.items[0]:'';}else{title=n===1?`${g.who} added to ${section[g.type]}`:`${g.who} added ${n} ${word[g.type]} to ${section[g.type]}`;body=n===1?g.items[0]:'';}}else{title='Family Hub';body=gs.map(g=>{const n=g.items.length;if(g.type==='msg')return n===1?`${g.who}: ${g.items[0]}`:`${g.who} sent ${n} messages`;return n===1?`${g.who} added to ${section[g.type]}: ${g.items[0]}`:`${g.who} added ${n} to ${section[g.type]}`;}).join(' · ');}sendPushNotif(title,body,member);}
+function queueNotif(type,who,text){notifBatch.push({type,who,text});if(notifTimer2)clearTimeout(notifTimer2);notifTimer2=setTimeout(flushNotifBatch,2000);}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 let _switching=false;
 function doLogout(){if(_switching)return;try{if(pollTimer){clearInterval(pollTimer);pollTimer=null;}member=null;syncShopFab();renderLogin();const card=document.querySelector('.login-card');if(card){card.style.transition='';card.style.opacity='';card.style.transform='';}showScreen('login');}catch(e){}}
@@ -2322,7 +2330,7 @@ window.addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'&&tabIdx<TABS.length-1)setTab(tabIdx+1);
     else if(e.key==='ArrowLeft'&&tabIdx>0)setTab(tabIdx-1);
   }
-});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}else if(member){try{initPush();}catch(e){}if(!pollTimer)startPoll();(async()=>{try{const d=await fbRead();if(d.updatedAt>lastTs){lastTs=d.updatedAt;state={shop:d.shop,todo:d.todo,notes:d.notes,notices:d.notices,itemHistory:d.itemHistory||{shop:{},todo:{},shopBlocked:[]},shopMode:d.shopMode||null};cacheState();renderContent();renderTabs();}setOffline(false);}catch(e){setOffline(!navigator.onLine);}})();}});}
+});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(notifBatch.length)flushNotifBatch();if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}else if(member){try{initPush();}catch(e){}if(!pollTimer)startPoll();(async()=>{try{const d=await fbRead();if(d.updatedAt>lastTs){lastTs=d.updatedAt;state={shop:d.shop,todo:d.todo,notes:d.notes,notices:d.notices,itemHistory:d.itemHistory||{shop:{},todo:{},shopBlocked:[]},shopMode:d.shopMode||null};cacheState();renderContent();renderTabs();}setOffline(false);}catch(e){setOffline(!navigator.onLine);}})();}});}
 init();
 </script>
 </body>
